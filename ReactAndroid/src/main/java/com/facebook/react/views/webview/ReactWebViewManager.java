@@ -303,8 +303,8 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
                         ScrollEventType.SCROLL,
                         this.getScrollX(),
                         this.getScrollY(),
-                        this.getMeasuredWidth(),
-                        this.getMeasuredHeight(),
+                        this.computeHorizontalScrollRange(),
+                        this.computeVerticalScrollRange(),
                         this.getWidth(),
                         this.getHeight()));
       }
