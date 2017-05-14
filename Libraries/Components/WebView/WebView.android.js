@@ -169,6 +169,7 @@ class WebView extends React.Component {
      */
     injectJavaScript: PropTypes.func,
 
+    userUrlSchemes: PropTypes.arrayOf(PropTypes.string),
     /**
      * Specifies the mixed content mode. i.e WebView will allow a secure origin to load content from any other origin.
      *
@@ -256,6 +257,7 @@ class WebView extends React.Component {
         onContentSizeChange={this.props.onContentSizeChange}
         onLoadingStart={this.onLoadingStart}
         onWillLoadUrl={this.onWillLoadUrl}
+        userUrlSchemes={this.props.userUrlSchemes}
         onLoadingFinish={this.onLoadingFinish}
         onLoadingError={this.onLoadingError}
         testID={this.props.testID}

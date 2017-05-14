@@ -9,13 +9,6 @@
 
 package com.facebook.react.views.webview;
 
-import javax.annotation.Nullable;
-
-import java.io.UnsupportedEncodingException;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -26,15 +19,14 @@ import android.text.TextUtils;
 import android.view.ViewGroup.LayoutParams;
 import android.webkit.ConsoleMessage;
 import android.webkit.GeolocationPermissions;
-import android.webkit.WebChromeClient;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import com.facebook.common.logging.FLog;
-import com.facebook.react.common.ReactConstants;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.ReactContext;
@@ -43,6 +35,7 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.ReadableMapKeySetIterator;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
+import com.facebook.react.common.ReactConstants;
 import com.facebook.react.common.build.ReactBuildConfig;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.uimanager.SimpleViewManager;
@@ -58,8 +51,18 @@ import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
 import com.facebook.react.views.webview.events.TopLoadingStartEvent;
 import com.facebook.react.views.webview.events.TopMessageEvent;
 
-import org.json.JSONObject;
 import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * Manages instances of {@link WebView}
@@ -137,22 +140,32 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
 
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-        dispatchEvent(
-          view,
-          new TopLoadUrlEvent(
-            view.getId(),
-            createWebViewEvent(view, url)));
-
-        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("file://")) {
-          try {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            view.getContext().startActivity(intent);
-          } catch (ActivityNotFoundException e) {
-            FLog.w(ReactConstants.TAG, "activity not found to handle uri scheme for: " + url, e);
-          }
+      if (view instanceof ReactWebView) {
+        List<String> schemes = ((ReactWebView ) view).getUserUrlSchemes();
+        String[] urlComponents = url.split(":");
+        if (schemes.contains(urlComponents[0]) || schemes.contains("*")) {
+          dispatchEvent(
+                  view,
+                  new TopLoadUrlEvent(
+                          view.getId(),
+                          createWebViewEvent(view, url)));
+          return true;
         }
-        return true;       
+      }
+
+      if (url.startsWith("http://") || url.startsWith("https://") ||
+              url.startsWith("file://")) {
+        return false;
+      } else {
+        try {
+          Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+          intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+          view.getContext().startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+          FLog.w(ReactConstants.TAG, "activity not found to handle uri scheme for: " + url, e);
+        }
+        return true;
+      }
     }
 
     @Override
@@ -217,6 +230,22 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
   protected static class ReactWebView extends WebView implements LifecycleEventListener {
     private @Nullable String injectedJS;
     private boolean messagingEnabled = false;
+    private final List<String> userUrlSchemes;
+
+    public void setUserUrlSchemes(@Nullable ReadableArray userUrlSchemes) {
+      this.userUrlSchemes.clear();
+
+      if (userUrlSchemes != null && userUrlSchemes.size() != 0) {
+        for (int idx = 0; idx < userUrlSchemes.size(); idx++) {
+          String scheme = userUrlSchemes.getString(idx);
+          this.userUrlSchemes.add(scheme);
+        }
+      }
+    }
+
+    public List<String> getUserUrlSchemes() {
+      return userUrlSchemes;
+    }
 
     private class ReactWebViewBridge {
       ReactWebView mContext;
@@ -240,6 +269,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
      */
     public ReactWebView(ThemedReactContext reactContext) {
       super(reactContext);
+      userUrlSchemes = new LinkedList<>();
     }
 
     @Override
@@ -382,6 +412,13 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
   @ReactProp(name = "domStorageEnabled")
   public void setDomStorageEnabled(WebView view, boolean enabled) {
     view.getSettings().setDomStorageEnabled(enabled);
+  }
+
+  @ReactProp(name = "userUrlSchemes")
+  public void setUserUrlSchemes(WebView view, @Nullable ReadableArray schemes) {
+    if (schemes != null) {
+      ((ReactWebView) view).setUserUrlSchemes(schemes);
+    }
   }
 
   @ReactProp(name = "userAgent")
