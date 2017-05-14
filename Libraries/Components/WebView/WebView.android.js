@@ -255,6 +255,7 @@ class WebView extends React.Component {
         automaticallyAdjustContentInsets={this.props.automaticallyAdjustContentInsets}
         onContentSizeChange={this.props.onContentSizeChange}
         onLoadingStart={this.onLoadingStart}
+        onWillLoadUrl={this.onWillLoadUrl}
         onLoadingFinish={this.onLoadingFinish}
         onLoadingError={this.onLoadingError}
         testID={this.props.testID}
@@ -343,6 +344,11 @@ class WebView extends React.Component {
     var onLoadStart = this.props.onLoadStart;
     onLoadStart && onLoadStart(event);
     this.updateNavigationState(event);
+  };
+
+  onWillLoadUrl = (event) => {
+    var onWillLoadUrl = this.props.onWillLoadUrl;
+    onWillLoadUrl && onWillLoadUrl(event);
   };
 
   onLoadingError = (event) => {

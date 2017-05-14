@@ -52,6 +52,7 @@ import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.events.ContentSizeChangeEvent;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.EventDispatcher;
+import com.facebook.react.views.webview.events.TopLoadUrlEvent;
 import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
 import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
 import com.facebook.react.views.webview.events.TopLoadingStartEvent;
@@ -136,10 +137,16 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
 
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-        if (url.startsWith("http://") || url.startsWith("https://") ||
-            url.startsWith("file://")) {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
           return false;
-        } else {
+        }
+        dispatchEvent(
+          view,
+          new TopLoadUrlEvent(
+            view.getId(),
+            createWebViewEvent(view, url)));
+
+        if (!url.startsWith("file://")) {
           try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -147,8 +154,8 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
           } catch (ActivityNotFoundException e) {
             FLog.w(ReactConstants.TAG, "activity not found to handle uri scheme for: " + url, e);
           }
-          return true;
         }
+        return true;       
     }
 
     @Override
@@ -486,7 +493,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
         view.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
       } else if ("compatibility".equals(mixedContentMode)) {
         view.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-      } 
+      }
     }
   }
 
