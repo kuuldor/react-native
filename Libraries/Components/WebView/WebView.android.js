@@ -58,6 +58,9 @@ class WebView extends React.Component {
     automaticallyAdjustContentInsets: PropTypes.bool,
     contentInset: EdgeInsetsPropType,
     onNavigationStateChange: PropTypes.func,
+    onWillLoadUrl: PropTypes.func,
+    onScroll: PropTypes.func,
+    scrollEventThrottle: PropTypes.number,
     onMessage: PropTypes.func,
     onContentSizeChange: PropTypes.func,
     startInLoadingState: PropTypes.bool, // force WebView to show loadingView on first load
@@ -257,6 +260,8 @@ class WebView extends React.Component {
         onContentSizeChange={this.props.onContentSizeChange}
         onLoadingStart={this.onLoadingStart}
         onWillLoadUrl={this.onWillLoadUrl}
+        onScroll={this.onScroll}
+        scrollEventThrottle={this.props.scrollEventThrottle ? this.props.scrollEventThrottle : 0}
         userUrlSchemes={this.props.userUrlSchemes}
         onLoadingFinish={this.onLoadingFinish}
         onLoadingError={this.onLoadingError}
@@ -352,6 +357,11 @@ class WebView extends React.Component {
     var onWillLoadUrl = this.props.onWillLoadUrl;
     onWillLoadUrl && onWillLoadUrl(event);
   };
+
+  onScroll = (event) => {
+    var onScroll = this.props.onScroll;
+    onScroll && onScroll(event);
+  }
 
   onLoadingError = (event) => {
     event.persist(); // persist this event because we need to store it

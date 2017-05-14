@@ -15,6 +15,7 @@ import android.graphics.Bitmap;
 import android.graphics.Picture;
 import android.net.Uri;
 import android.os.Build;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.ViewGroup.LayoutParams;
 import android.webkit.ConsoleMessage;
@@ -45,6 +46,8 @@ import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.events.ContentSizeChangeEvent;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.EventDispatcher;
+import com.facebook.react.views.scroll.ScrollEvent;
+import com.facebook.react.views.scroll.ScrollEventType;
 import com.facebook.react.views.webview.events.TopLoadUrlEvent;
 import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
 import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
@@ -228,9 +231,50 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
    * to call {@link WebView#destroy} on activty destroy event and also to clear the client
    */
   protected static class ReactWebView extends WebView implements LifecycleEventListener {
+
+    public void setScrollEventThrottle(int scrollEventThrottle) {
+      mOnScrollDispatchHelper.setThrottle(scrollEventThrottle);
+    }
+
+    public class OnScrollDispatchHelper {
+
+      private static final int MIN_EVENT_SEPARATION_MS = 10;
+      private int mThrottle;
+
+      private long mLastScrollEventTimeMs = -(MIN_EVENT_SEPARATION_MS + 1);
+
+      public OnScrollDispatchHelper(int throttle) {
+        if (throttle >= MIN_EVENT_SEPARATION_MS) {
+          this.mThrottle = throttle;
+        } else {
+          this.mThrottle = MIN_EVENT_SEPARATION_MS;
+        }
+      }
+
+      /**
+       * Call from a ScrollView in onScrollChanged, returns true if this onScrollChanged is legit (not a
+       * duplicate) and should be dispatched.
+       */
+      public boolean onScrollChanged(int x, int y) {
+        long eventTime = SystemClock.uptimeMillis();
+        boolean shouldDispatch = eventTime - mLastScrollEventTimeMs > mThrottle;
+
+        if (shouldDispatch) {
+          mLastScrollEventTimeMs = eventTime;
+        }
+
+        return shouldDispatch;
+      }
+
+      public void setThrottle(int throttle) {
+        this.mThrottle = throttle;
+      }
+    }
+
     private @Nullable String injectedJS;
     private boolean messagingEnabled = false;
     private final List<String> userUrlSchemes;
+    private final OnScrollDispatchHelper mOnScrollDispatchHelper = new OnScrollDispatchHelper(0);
 
     public void setUserUrlSchemes(@Nullable ReadableArray userUrlSchemes) {
       this.userUrlSchemes.clear();
@@ -245,6 +289,25 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
 
     public List<String> getUserUrlSchemes() {
       return userUrlSchemes;
+    }
+
+    @Override
+    protected void onScrollChanged(int x, int y, int oldX, int oldY) {
+      super.onScrollChanged(x, y, oldX, oldY);
+
+      if (mOnScrollDispatchHelper.onScrollChanged(x, y)) {
+        ReactContext reactContext = (ReactContext) this.getContext();
+        reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher().dispatchEvent(
+                ScrollEvent.obtain(
+                        this.getId(),
+                        ScrollEventType.SCROLL,
+                        this.getScrollX(),
+                        this.getScrollY(),
+                        this.getMeasuredWidth(),
+                        this.getMeasuredHeight(),
+                        this.getWidth(),
+                        this.getHeight()));
+      }
     }
 
     private class ReactWebViewBridge {
@@ -419,6 +482,11 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
     if (schemes != null) {
       ((ReactWebView) view).setUserUrlSchemes(schemes);
     }
+  }
+
+  @ReactProp(name = "scrollEventThrottle", defaultFloat = 0.0f)
+  public void setScrollEventThrottle(WebView view, float throttle) {
+    ((ReactWebView) view).setScrollEventThrottle(Math.round(throttle));
   }
 
   @ReactProp(name = "userAgent")
