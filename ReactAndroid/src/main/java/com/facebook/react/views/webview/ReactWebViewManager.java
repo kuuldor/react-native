@@ -137,16 +137,13 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
 
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, String url) {
-        if (url.startsWith("http://") || url.startsWith("https://")) {
-          return false;
-        }
         dispatchEvent(
           view,
           new TopLoadUrlEvent(
             view.getId(),
             createWebViewEvent(view, url)));
 
-        if (!url.startsWith("file://")) {
+        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("file://")) {
           try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
